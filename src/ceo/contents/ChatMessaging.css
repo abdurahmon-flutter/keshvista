@@ -64,15 +64,18 @@
 }
 
 /* Chat Input Area */
+/* Chat Input Area */
 .chat-input-container {
     display: flex;
+    align-items: center;
     margin-top: 5px;
     border-radius: 20px;
     padding: 10px;
-    max-width:100%;
+    max-width: 100%;
     background-color: var(--light);
 }
 
+/* Message Input Field */
 .message-input {
     flex-grow: 1;
     padding: 10px;
@@ -83,7 +86,10 @@
     background-color: var(--light);
     color: var(--dark);
     font-size: 16px;
+    min-width: 0; /* Ensure the input shrinks properly */
+    box-sizing: border-box;
 }
+
 
 .send-btn {
     align-self: center;
@@ -428,12 +434,15 @@
         display: none;
     }
     .chat-input-container {
+        padding: 5px; /* Reduce padding on smaller screens */
+    }
+    .message-input {
+        font-size: 14px;
+        padding: 8px;
         width: 100%;
-        display: flex;
-        margin-top: 5px;
-        border-radius: 20px;
-        padding: 1px;
-        background-color: transparent;
+        flex-grow: 1;
+        max-width: 100%;
+        min-width: 0; /* Ensure it doesn't overflow */
     }
 }
 
