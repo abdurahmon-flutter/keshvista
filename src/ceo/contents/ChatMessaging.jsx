@@ -307,12 +307,23 @@ const ChatMessaging = () => {
   const removeImage = () => {
     setImage(null);
   };
-
+  const getSize = () => {
+    const width = window.innerWidth;
+    if (width < 600) return 100;
+    if (width < 992) return 200;
+    return 400; // Default size for larger screens
+  };
+  const getIcon = () => {
+    const width = window.innerWidth;
+    if (width < 600) return <i class='bx bx-send' ></i>;
+    if (width < 992) return <i class='bx bx-send' ></i>;
+    return sendBtnContent; // Default size for larger screens
+  };
   return (
     <>
       {loading ? (
         <div className="loading-content">
-          <Lottie options={defaultOptions} height={400} width={400} />
+          <Lottie options={defaultOptions} height={getSize()} width={getSize()} />
           <h1>Loading ...</h1>
         </div>
       ) : (
@@ -343,9 +354,18 @@ const ChatMessaging = () => {
                   <div className="message-content">{message.content}</div>
                 </div>
               ))}
-              <div className="spacer" />
             </div>
-
+            {image ? (
+                <div className="selected-image-preview">
+                  <img
+                    src={URL.createObjectURL(image)}
+                    alt=""
+                    className="image-selected"
+                  />
+                  </div>
+              ) : (
+                <div></div>
+              )}
             <div className="chat-input-container">
               {uploadProgress && (
                 <div className="upload-progress">{`Uploading: ${uploadProgress}%`}</div>
@@ -367,18 +387,15 @@ const ChatMessaging = () => {
               />
               {image ? (
                 <div className="selected-image-preview">
-                  <img
-                    src={URL.createObjectURL(image)}
-                    alt=""
-                    className="image-selected"
-                  />
+                  
                   <i className="bx bxs-x-circle" onClick={removeImage}></i>
                 </div>
               ) : (
                 <i className="bx bx-paperclip" onClick={triggerFileInput}></i>
               )}
               <button className="send-btn" onClick={sendMessage}>
-                {sendBtnContent}
+                {getIcon()}
+                
               </button>
             </div>
           </div>

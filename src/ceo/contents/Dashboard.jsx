@@ -19,6 +19,7 @@ const defaultOptions = {
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [income, setIncome] = useState(0);
+  const [lottieSize, setlottieSize] = useState(0);
   const [expenses, setExpenses] = useState(0);
   const [clearIncome, setClearIncome] = useState(0);
   const [students, setStudents] = useState([]);
@@ -176,12 +177,17 @@ const Dashboard = () => {
 
     fetchUserData();
   }, [userID, userType]);
-
+  const getSize = () => {
+    const width = window.innerWidth;
+    if (width < 600) return 100;
+    if (width < 992) return 200;
+    return 400; // Default size for larger screens
+  };
   return (
     <main className="dashboard">
       {loading ? (
         <div className="loading-content">
-          <Lottie options={defaultOptions} height={400} width={400} />
+          <Lottie options={defaultOptions} height={getSize()} width={getSize()} />
           <h1>Deyarli Tayyor ...</h1>
         </div>
       ) : (

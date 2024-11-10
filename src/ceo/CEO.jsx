@@ -82,7 +82,7 @@ const CEO = () => {
       <div className="content">
         <nav>
           <i className='bx bx-menu' onClick={toggleSidebar}></i>
-          <div className="level"><h1>Bosh Rahbar</h1></div>
+          <div className="level"><h1>CEO</h1></div>
           <input type="checkbox" id="theme-toggle" hidden onChange={handleThemeToggle} />
           <label htmlFor="theme-toggle" className="theme-toggle"></label>
           <a href="#" className="profile">

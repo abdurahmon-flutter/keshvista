@@ -44,7 +44,12 @@ const Chats = () => {
       return null;
     }
   };
-
+  const getSize = () => {
+    const width = window.innerWidth;
+    if (width < 600) return 100;
+    if (width < 992) return 200;
+    return 400; // Default size for larger screens
+  };
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -123,7 +128,7 @@ const Chats = () => {
   };
   if (loading) return (
     <div className="loading-content">
-          <Lottie options={defaultOptions} height={400} width={400} />
+          <Lottie options={defaultOptions} height={getSize()} width={getSize()} />
           <h1>Deyarli Tayyor ...</h1>
         </div>
   );
