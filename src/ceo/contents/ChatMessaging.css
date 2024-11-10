@@ -428,6 +428,7 @@
         display: none;
     }
     .chat-input-container {
+        width: 100%;
         display: flex;
         margin-top: 5px;
         border-radius: 20px;
