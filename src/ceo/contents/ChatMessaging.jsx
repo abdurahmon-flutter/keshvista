@@ -5,12 +5,76 @@ import { useParams, useNavigate } from "react-router-dom";
 import Lottie from "react-lottie";
 import animationData from "./loading.json";
 import { supabase } from "../../supabaseClient";
+const ImagePreviewContainer = ({ imageUrl, message, onClose }) => {
+  const [isLoading, setIsLoading] = useState(true);
+
+  const handleImageLoad = () => {
+    setIsLoading(false); // Hide loading animation when the image is loaded
+  };
+
+  const lottieOptions = {
+    loop: true,
+    autoplay: true,
+    animationData: animationData,
+    rendererSettings: {
+      preserveAspectRatio: "xMidYMid slice",
+    },
+  };
+
+  return (
+    <div className="image-preview-container">
+      {/* Background Overlay */}
+      <div className="image-preview-overlay" onClick={onClose}></div>
+
+      {/* Content */}
+      <div className="image-preview-content">
+        {/* Close Button */}
+        <i
+          className="bx bxs-x-circle close-icon"
+          onClick={onClose}
+          style={{ display: isLoading ? "none" : "block" }}
+        ></i>
+
+        {/* Image or Lottie Animation */}
+        <div className="image-container">
+          {isLoading && (
+            <div className="lottie-container">
+              <Lottie options={lottieOptions} height={100} width={100} />
+            </div>
+          )}
+          <img
+            src={imageUrl + "g"}
+            alt="Preview"
+            className="image-preview"
+            style={{ display: isLoading ? "none" : "block" }}
+            onLoad={handleImageLoad}
+          />
+        </div>
+
+        {/* Download Button */}
+        <a
+          href={imageUrl + "g"}
+          download
+          className="download-icon"
+          style={{ display: isLoading ? "none" : "block" }}
+        >
+          <i className="bx bxs-download"></i>
+        </a>
+
+        {/* Message Below Image */}
+        {message && <div className="image-message">{message}</div>}
+      </div>
+    </div>
+  );
+};
 
 const ChatMessaging = () => {
   const userType = localStorage.getItem("userType");
   const [imagesLoaded, setImagesLoaded] = useState(false);
   const [messagesLoading, setmessagesLoading] = useState(true);
-  const [uploadProgress, setUploadProgress] = useState(null);
+  const [imagePreviewEnabled, setimagePreviewEnabled] = useState(false);
+  const [uploadProgressText, setUploadProgressText] = useState("");
+  const [selectedMessage, setSelectedMessage] = useState("");
   const userID = localStorage.getItem("userId");
   const [chatUserID, setchatUserID] = useState(null);
   const [lcenterId, setLcenterID] = useState(null);
@@ -19,6 +83,7 @@ const ChatMessaging = () => {
   const [messages, setMessages] = useState([]);
   const [chatUsers, setChatUsers] = useState([]);
   const [messageContent, setMessageContent] = useState("");
+  const [selectedImageForPreview, setSelectedImageForPreview] = useState("");
   const [sendBtnContent, setsendBtnContent] = useState("Yuborish");
   const lastMessageId = useRef(0);
   const receivedMessageIds = useRef(new Set());
@@ -32,8 +97,22 @@ const ChatMessaging = () => {
       preserveAspectRatio: "xMidYMid slice",
     },
   };
+  const handleImageClick = (image, message) => {
+    setimagePreviewEnabled(true);
+    setSelectedImageForPreview(image);
+    setSelectedMessage(message);
+  };
 
-  const { chatName } = useParams(); // Extract chat name from the ENDPOINT
+  const closeImagePreview = () => {
+    setimagePreviewEnabled(false);
+    setSelectedImageForPreview(null);
+    setSelectedMessage("");
+    setTimeout(() => {
+      scrollToBottom(); // Ensure it runs after the state update
+    }, 0);
+  };
+
+  const { chatName } = useParams();
   const navigate = useNavigate();
 
   // Fetch user data
@@ -57,7 +136,7 @@ const ChatMessaging = () => {
         throw new Error("User not found");
       }
     } catch (error) {
-      console.error("Error fetching level data:", error);
+      console.error(":", error);
       return null;
     }
   };
@@ -171,18 +250,9 @@ const ChatMessaging = () => {
       })
       .finally(() => setLoading(false));
   };
-
-  const onImageLoad = () => {
-    const imageElements = document.querySelectorAll(".message-image");
-    const loadedImages = Array.from(imageElements).every((img) => img.complete);
-
-    if (loadedImages) {
-      setLoading(false);
-      setImagesLoaded(true);
-    }
-  };
   const uploadImageToSupabase = async (file) => {
     setsendBtnContent("Yuborilmoqda...");
+    setUploadProgressText("Rasm yuklanmoqda ...");
     const fileExt = file.name.split(".").pop();
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `chat-images/${fileName}`;
@@ -197,7 +267,7 @@ const ChatMessaging = () => {
       const { data: publicURLData } = supabase.storage
         .from("chats")
         .getPublicUrl(filePath);
-
+      setUploadProgressText("");
       return publicURLData?.publicUrl || null;
     } catch (error) {
       console.error("Error uploading image:", error);
@@ -206,12 +276,9 @@ const ChatMessaging = () => {
   };
 
   const sendMessage = async () => {
-    // Ensure either a text message or an image is provided
     if (!messageContent.trim() && !image) return;
-    if(!image) setsendBtnContent("Yuborilmoqda...");
+    if (!image) setsendBtnContent("Yuborilmoqda...");
     let imageUrl = null;
-  
-    // Upload the selected image to Supabase if an image is present
     if (image) {
       imageUrl = await uploadImageToSupabase(image);
       if (!imageUrl) {
@@ -219,21 +286,21 @@ const ChatMessaging = () => {
         return;
       }
     }
-  
+
     // Create form data for the message
     const formData = new FormData();
     formData.append("roomId", chatRoomID);
     formData.append("content", messageContent);
     formData.append("messageOwner", chatUserID);
     if (imageUrl) formData.append("image", imageUrl);
-  
+
     try {
       // Send the message via a POST request
       const response = await fetch(`${ENDPOINT}/chat-message/`, {
         method: "POST",
         body: formData,
       });
-  
+
       if (response.ok) {
         // Clear the input fields and refresh messages on successful send
         setsendBtnContent("Yuborish");
@@ -247,7 +314,10 @@ const ChatMessaging = () => {
       console.error("Error sending message:", error);
     }
   };
-  
+  const getImagePreview = (image) => {
+    setSelectedImageForPreview(image);
+    setimagePreviewEnabled(true);
+  };
 
   const getChatUserName = (chatUserId) => {
     const user = chatUsers.find(
@@ -315,91 +385,127 @@ const ChatMessaging = () => {
   };
   const getIcon = () => {
     const width = window.innerWidth;
-    if (width < 600) return <i class='bx bx-send' ></i>;
-    if (width < 992) return <i class='bx bx-send' ></i>;
+    if (width < 600)
+      return (
+        <i class="bx bxs-send bx-rotate-270" style={{ color: "white" }}></i>
+      );
+    if (width < 992)
+      return (
+        <i class="bx bxs-send bx-rotate-270" style={{ color: "white" }}></i>
+      );
     return sendBtnContent; // Default size for larger screens
   };
+
   return (
     <>
       {loading ? (
         <div className="loading-content">
-          <Lottie options={defaultOptions} height={getSize()} width={getSize()} />
-          <h1>Loading ...</h1>
+          <Lottie
+            options={defaultOptions}
+            height={getSize()}
+            width={getSize()}
+          />
+          <h1>Yuklanmoqda ...</h1>
         </div>
       ) : (
-        <main className="chat-messaging">
-          <div className="chat-contents">
-            <div className="messages" ref={messageListRef}>
-              {messages.map((message) => (
-                <div
-                  className={`message ${
-                    message.messageOwner === chatUserID ? "sent" : "received"
-                  }`}
-                  key={message.id}
-                >
-                  <span className="username">
-                    {getChatUserName(message.messageOwner)}
-                  </span>
-                  {message.image && (
-                    <img
-                      src={`${message.image}g`}
-                      className="message-image"
-                      onLoad={onImageLoad}
-                      alt="Message attachment"
-                      onContextMenu={(event) => event.preventDefault()}
-                      onDragStart={(event) => event.preventDefault()}
-                    />
+        <>
+          {imagePreviewEnabled ? (
+            <>
+              <ImagePreviewContainer
+                imageUrl={selectedImageForPreview}
+                message={selectedMessage}
+                onClose={closeImagePreview}
+              />
+            </>
+          ) : (
+            <>
+              <main className="chat-messaging">
+                <div className="chat-contents">
+                  <div className="messages" ref={messageListRef}>
+                    {messages.map((message) => (
+                      <div
+                        className={`message ${
+                          message.messageOwner === chatUserID
+                            ? "sent"
+                            : "received"
+                        }`}
+                        key={message.id}
+                      >
+                        <span className="username">
+                          {getChatUserName(message.messageOwner)}
+                        </span>
+                        {message.image && (
+                          <div
+                            className="message-image-container"
+                            onClick={() =>
+                              handleImageClick(message.image, message.content)
+                            }
+                          >
+                            <div className="message-image-container-inside">
+                              <i class="bx bx-image"></i>
+                              <h4>Rasm</h4>
+                              <i class="bx bx-chevron-right"></i>
+                            </div>
+                            <p>Ochish uchun bosing!</p>
+                          </div>
+                        )}
+
+                        <div className="message-content">{message.content}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {image ? (
+                    <>
+                      <div className="selected-image-preview">
+                        <img
+                          src={URL.createObjectURL(image)}
+                          alt=""
+                          className="image-selected"
+                        />
+                        <span>{uploadProgressText}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div></div>
                   )}
 
-                  <div className="message-content">{message.content}</div>
-                </div>
-              ))}
-            </div>
-            {image ? (
-                <div className="selected-image-preview">
-                  <img
-                    src={URL.createObjectURL(image)}
-                    alt=""
-                    className="image-selected"
-                  />
+                  <div className="chat-input-container">
+                    <input
+                      type="text"
+                      className="message-input"
+                      placeholder="Xabar..."
+                      value={messageContent}
+                      onChange={(e) => setMessageContent(e.target.value)}
+                    />
+                    <input
+                      type="file"
+                      id="image-picker"
+                      accept="image/*"
+                      style={{ display: "none" }}
+                      onChange={handleImageChange}
+                    />
+                    {image ? (
+                      <div className="selected-image-preview">
+                        <i
+                          className="bx bxs-x-circle"
+                          onClick={removeImage}
+                        ></i>
+                      </div>
+                    ) : (
+                      <i
+                        className="bx bx-paperclip"
+                        onClick={triggerFileInput}
+                      ></i>
+                    )}
+                    <button className="send-btn" onClick={sendMessage}>
+                      {getIcon()}
+                    </button>
                   </div>
-              ) : (
-                <div></div>
-              )}
-            <div className="chat-input-container">
-              {uploadProgress && (
-                <div className="upload-progress">{`Uploading: ${uploadProgress}%`}</div>
-              )}
-
-              <input
-                type="text"
-                className="message-input"
-                placeholder="Type a message..."
-                value={messageContent}
-                onChange={(e) => setMessageContent(e.target.value)}
-              />
-              <input
-                type="file"
-                id="image-picker"
-                accept="image/*"
-                style={{ display: "none" }}
-                onChange={handleImageChange}
-              />
-              {image ? (
-                <div className="selected-image-preview">
-                  
-                  <i className="bx bxs-x-circle" onClick={removeImage}></i>
                 </div>
-              ) : (
-                <i className="bx bx-paperclip" onClick={triggerFileInput}></i>
-              )}
-              <button className="send-btn" onClick={sendMessage}>
-                {getIcon()}
-                
-              </button>
-            </div>
-          </div>
-        </main>
+              </main>
+            </>
+          )}
+        </>
       )}
     </>
   );
