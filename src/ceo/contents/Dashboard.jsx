@@ -219,7 +219,7 @@ const Dashboard = () => {
               </span>
             </li>
             <li>
-              <i className="bx bx-line-chart"></i>
+              <i className="bx bx-line-chart"></i> 
               <span className="info">
                 <h3>{requests.length}</h3>
                 <p>So'rovlar</p>
