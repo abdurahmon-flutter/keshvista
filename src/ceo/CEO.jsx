@@ -6,7 +6,7 @@ import Dashboard from './contents/Dashboard'; // Import the Dashboard component
 
 const CEO = () => {
   const location = useLocation(); // Hook to get the current path
-  const [isSidebarClosed, setIsSidebarClosed] = useState(false);
+  const [isSidebarClosed, setIsSidebarClosed] = useState(true);
   const [isSearchShown, setIsSearchShown] = useState(false);
   const [theme, setTheme] = useState('light');
   const [activeMenuItem, setActiveMenuItem] = useState('dashboard'); 
@@ -29,8 +29,7 @@ const CEO = () => {
   }, []);
 
   useEffect(() => {
-    const handleResize = () => {
-      setIsSidebarClosed(window.innerWidth < 768);
+    const handleResize = () => {    
       setIsSearchShown(window.innerWidth <= 576 ? isSearchShown : false);
     };
     window.addEventListener('resize', handleResize);

@@ -95,10 +95,10 @@
     align-self: center;
     background-color: #007bff;
     color: #fff;
-    width: 120px;
-    height: 35px;
+    width: 45px;
+    height: 45px;
     border: none;
-    border-radius: 5%;
+    border-radius: 50%;
     margin-left: 10px;
     cursor: pointer;
     transition: background 0.3s;
@@ -194,9 +194,11 @@
 
 /* General Message Styles */
 .message {
+    user-select: none;
     margin-bottom: 15px;
-    padding: 5px 10px;
-    border-radius: 10px;
+    padding: 2px 5px;
+    
+    border-radius: 5px;
     word-wrap: break-word;
     background-color: #6A1B9A;
     color: #fff;
@@ -204,6 +206,9 @@
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     max-width: calc(100% - 10px); /* Ensures message is no wider than chat-contents minus 10px */
     width: max-content; /* Defaults to content width if within max-width limit */
+}
+.message-content{
+    font-size: small;
 }
 .message-image {
     max-width: calc(100% - 10px); /* Make sure the image doesn't overflow the container */
@@ -230,7 +235,7 @@
 /* Username Styling */
 .message span {
     display: block;
-    font-size: 12px;
+    font-size: 10px;
     margin-top: 4px;
     color: #acfffc;
 }
@@ -492,10 +497,10 @@
 
 /* Full-screen modal styles */
 .image-preview-container {
-    position: fixed;
+    
     top: 0;
     left: 0;
-    width: 100vw;
+    width: 100%;
     height: 100vh;
     display: flex;
     justify-content: center;
@@ -506,15 +511,15 @@
   
   .image-preview-overlay {
     position: absolute;
-    width: 100%;
-    height: 100%;
+    width: 80%;
+    height: 80%;
     cursor: zoom-out;
   }
   
   .image-preview-content {
     position: relative;
-    max-width: 90%;
-    max-height: 90%;
+    max-width: 80%;
+    max-height: 80%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -584,3 +589,59 @@
 .user-list {
     height: 74vh;
 }
+.message-content{
+    user-select:text;
+}
+@media (min-width:700px) {
+    .message {
+        margin-bottom: 15px;
+        padding: 5px 10px;
+        
+        border-radius: 10px;
+        word-wrap: break-word;
+        background-color: #6A1B9A;
+        color: #fff;
+        position: relative;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        max-width: calc(100% - 10px); /* Ensures message is no wider than chat-contents minus 10px */
+        width: max-content; /* Defaults to content width if within max-width limit */
+    }
+    .message-content{
+        font-size: medium;
+        user-select: text;
+    }
+    .message span{
+        font-size: 12px;
+    }
+}
+.custom-context-menu {
+    background-color: white;
+    border: 1px solid #ccc;
+    padding: 10px;
+    border-radius: 5px;
+    position: absolute;  /* Ensure it's positioned near the mouse */
+    opacity: 0;  /* Start with the menu hidden */
+    transform: scale(0.8);  /* Start scaled down */
+    transition: opacity 0.3s ease, transform 0.3s ease;  /* Add smooth transition */
+    z-index: 1000;  /* Ensure it's above other elements */
+  }
+  
+  .custom-context-menu.show {
+    opacity: 1;  /* Fade in */
+    transform: scale(1);  /* Scale to original size */
+  }
+  
+  .custom-context-menu ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .custom-context-menu li {
+    padding: 5px 10px;
+    cursor: pointer;
+  }
+  
+  
+  
+  

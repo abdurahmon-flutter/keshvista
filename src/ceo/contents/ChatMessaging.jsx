@@ -7,10 +7,11 @@ import animationData from "./loading.json";
 import { supabase } from "../../supabaseClient";
 const ImagePreviewContainer = ({ imageUrl, message, onClose }) => {
   const [isLoading, setIsLoading] = useState(true);
-
+  
   const handleImageLoad = () => {
-    setIsLoading(false); // Hide loading animation when the image is loaded
+    setIsLoading(false); 
   };
+  
 
   const lottieOptions = {
     loop: true,
@@ -43,7 +44,7 @@ const ImagePreviewContainer = ({ imageUrl, message, onClose }) => {
             </div>
           )}
           <img
-            src={imageUrl + "g"}
+            src={ENDPOINT+"/media/"+imageUrl}
             alt="Preview"
             className="image-preview"
             style={{ display: isLoading ? "none" : "block" }}
@@ -53,8 +54,8 @@ const ImagePreviewContainer = ({ imageUrl, message, onClose }) => {
 
         {/* Download Button */}
         <a
-          href={imageUrl + "g"}
-          download
+          href={imageUrl}
+          download={imageUrl}
           className="download-icon"
           style={{ display: isLoading ? "none" : "block" }}
         >
@@ -71,7 +72,8 @@ const ImagePreviewContainer = ({ imageUrl, message, onClose }) => {
 const ChatMessaging = () => {
   const userType = localStorage.getItem("userType");
   const [imagesLoaded, setImagesLoaded] = useState(false);
-  const [messagesLoading, setmessagesLoading] = useState(true);
+  const [messagesDeleteLoading, setMessagesDeleteLoading] = useState(false);
+  const [currentData, setCurrentData] = useState();
   const [imagePreviewEnabled, setimagePreviewEnabled] = useState(false);
   const [uploadProgressText, setUploadProgressText] = useState("");
   const [selectedMessage, setSelectedMessage] = useState("");
@@ -88,7 +90,14 @@ const ChatMessaging = () => {
   const lastMessageId = useRef(0);
   const receivedMessageIds = useRef(new Set());
   const messageListRef = useRef(null);
-
+  const [currentDeletedMessages, setCurrentDeletedMessages] = useState([]); // Array of deleted message IDs
+  const [contextMenu, setContextMenu] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+    messageId: null,
+  });
+  const [userScrolling, setUserScrolling] = useState(false);
   const defaultOptions = {
     loop: true,
     autoplay: true,
@@ -99,21 +108,97 @@ const ChatMessaging = () => {
   };
   const handleImageClick = (image, message) => {
     setimagePreviewEnabled(true);
+    
     setSelectedImageForPreview(image);
+    console.log(`${ENDPOINT}/media/${image}`);
     setSelectedMessage(message);
+  };
+  const handleScroll = () => {
+    if (messageListRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = messageListRef.current;
+  
+      // If user scrolls up, set the flag
+      if (scrollHeight - clientHeight - scrollTop > 5) {
+        setUserScrolling(true);
+      } else {
+        setUserScrolling(false);
+      }
+    }
+  };
+  useEffect(() => {
+    const messageList = messageListRef.current;
+    if (messageList) {
+      messageList.addEventListener("scroll", handleScroll);
+      return () => messageList.removeEventListener("scroll", handleScroll);
+    }
+  }, []);
+  useEffect(() => {
+    if (!userScrolling) {
+      scrollToBottom();
+    }
+  }, [messages, imagesLoaded, loading]);
+  const handleSenderRightClick = (event, messageId) => {
+    event.preventDefault(); // Prevent the default context menu
+    setContextMenu({
+      visible: true,
+      x: event.clientX,
+      y: event.clientY,
+      messageId: messageId,
+    });
   };
 
   const closeImagePreview = () => {
     setimagePreviewEnabled(false);
     setSelectedImageForPreview(null);
     setSelectedMessage("");
-    setTimeout(() => {
-      scrollToBottom(); // Ensure it runs after the state update
-    }, 0);
+    
   };
-
+ 
   const { chatName } = useParams();
   const navigate = useNavigate();
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        contextMenu.visible &&
+        !event.target.closest(".custom-context-menu")
+      ) {
+        setContextMenu({ ...contextMenu, visible: false });
+      }
+    };
+
+    document.addEventListener("click", handleClickOutside);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [contextMenu.visible]);
+  const renderContextMenu = () => {
+    if (!contextMenu.visible) return null;
+    return (
+      <div
+        className={`custom-context-menu ${contextMenu.visible ? "show" : ""}`}
+        style={{
+          position: "absolute",
+          top: `${contextMenu.y-100}px`,
+          left: `${contextMenu.x-100}px`,
+          
+          border: "1px solid #ccc",
+          padding: "10px",
+          zIndex: 9999,
+          width:"max-content",
+          backgroundColor:"var(--light)",
+          color:"var(--dark)"
+        }}
+      >
+        <ul>
+          <li onClick={() => deleteMessage(contextMenu.messageId)}>
+            🗑️O'chirish
+          </li>
+          <li>Report</li>
+          {/* Add more options as needed */}
+        </ul>
+      </div>
+    );
+  };
 
   // Fetch user data
   const fetchLevelData = async (userID, LocaluserType) => {
@@ -206,7 +291,30 @@ const ChatMessaging = () => {
     }
   };
 
-  // Fetch new messages
+  const fetchDeletedMessages = async () => {
+    try {
+      const response = await fetch(`${ENDPOINT}/chat-room/${chatRoomID}/clear-deleted-messages/`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.currentDeletedMessages) {
+          setCurrentDeletedMessages((prevDeletedMessages) => [
+            ...prevDeletedMessages,
+            ...data.currentDeletedMessages,
+          ]);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching deleted messages:', error);
+    }
+  };
+  const removeDeletedMessages = () => {
+    setMessages((prevMessages) => 
+      prevMessages.filter(
+        (message) => !currentDeletedMessages.includes(message.id)
+      )
+    );
+  };
+  
   const fetchNewMessages = (chatRoomId) => {
     if (!chatRoomId) return; // Ensure chatRoomId is defined
     setImagesLoaded(false);
@@ -250,63 +358,35 @@ const ChatMessaging = () => {
       })
       .finally(() => setLoading(false));
   };
-  const uploadImageToSupabase = async (file) => {
-    setsendBtnContent("Yuborilmoqda...");
-    setUploadProgressText("Rasm yuklanmoqda ...");
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}.${fileExt}`;
-    const filePath = `chat-images/${fileName}`;
 
-    try {
-      const { data, error } = await supabase.storage
-        .from("chats")
-        .upload(filePath, file);
-
-      if (error) throw error;
-
-      const { data: publicURLData } = supabase.storage
-        .from("chats")
-        .getPublicUrl(filePath);
-      setUploadProgressText("");
-      return publicURLData?.publicUrl || null;
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      return null;
-    }
-  };
 
   const sendMessage = async () => {
+    // Ensure either a text message or an image is provided
     if (!messageContent.trim() && !image) return;
-    if (!image) setsendBtnContent("Yuborilmoqda...");
-    let imageUrl = null;
-    if (image) {
-      imageUrl = await uploadImageToSupabase(image);
-      if (!imageUrl) {
-        console.error("Image upload failed.");
-        return;
-      }
-    }
-
+    setMessageContent("");
+    setImage(null);
+    setsendBtnContent("Yuborilmoqda...");
+  
     // Create form data for the message
     const formData = new FormData();
     formData.append("roomId", chatRoomID);
     formData.append("content", messageContent);
     formData.append("messageOwner", chatUserID);
-    if (imageUrl) formData.append("image", imageUrl);
-
+    if (image) formData.append("image", image); // Attach the image file if present
+  
     try {
       // Send the message via a POST request
       const response = await fetch(`${ENDPOINT}/chat-message/`, {
         method: "POST",
         body: formData,
       });
-
+  
       if (response.ok) {
         // Clear the input fields and refresh messages on successful send
         setsendBtnContent("Yuborish");
-        setMessageContent("");
         setImage(null);
         fetchNewMessages(); // Trigger fetching of new messages
+        console.log("Message sent successfully.");
       } else {
         console.error("Failed to send message:", response.statusText);
       }
@@ -314,10 +394,24 @@ const ChatMessaging = () => {
       console.error("Error sending message:", error);
     }
   };
-  const getImagePreview = (image) => {
-    setSelectedImageForPreview(image);
-    setimagePreviewEnabled(true);
-  };
+  useEffect(() => {
+    if(chatRoomID){
+      // Start long polling (fetch every 5 seconds)
+    const intervalId = setInterval(() => {
+      fetchDeletedMessages();
+    }, 1000);
+
+    // Cleanup interval on component unmount
+    return () => clearInterval(intervalId);
+    }
+  }, [chatRoomID]);
+
+  // Effect to remove deleted messages when currentDeletedMessages changes
+  useEffect(() => {
+    if (currentDeletedMessages.length > 0) {
+      removeDeletedMessages();
+    }
+  }, [currentDeletedMessages]);
 
   const getChatUserName = (chatUserId) => {
     const user = chatUsers.find(
@@ -347,18 +441,55 @@ const ChatMessaging = () => {
     setLoading(true);
     if (chatRoomID) {
       fetchNewMessages(chatRoomID);
+      
     }
   }, [chatRoomID]);
-
-  // Scroll to bottom when messages are updated
-  useEffect(() => {
-    if (!loading && messages.length > 0) {
-      scrollToBottom();
-    }
-  }, [messages, imagesLoaded, loading]);
-
   const [image, setImage] = useState(null);
-
+  async function deleteMessage(messageID) {
+    // URL of the API endpoint
+    const endpoint = `${ENDPOINT}/chat-room/${chatRoomID}/`;
+  
+    try {
+      // Fetch the current chat room data
+      const response = await fetch(endpoint);
+      const chatRoom = await response.json();
+  
+      if (chatRoom) {
+        // Check if the message ID is already in the deleted messages list
+        if (!chatRoom.currentDeletedMessages.includes(messageID)) {
+          // Add the message ID to the deleted messages list
+          chatRoom.currentDeletedMessages.push(messageID);
+  
+          // Make a PUT request to update the chat room
+          const updateResponse = await fetch(endpoint, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              ...chatRoom,
+              currentDeletedMessages: chatRoom.currentDeletedMessages,
+            }),
+          });
+  
+          if (updateResponse.ok) {
+            console.log(`Message ${messageID} deleted from room ${chatRoom.roomName}`);
+            setContextMenu({ ...contextMenu, visible: false });
+          } else {
+            console.error('Failed to update chat room.');
+          }
+        } else {
+          console.log(`Message ${messageID} is already deleted.`);
+        }
+      } else {
+        console.log(`Chat room with ID ${chatRoomID} not found.`);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  }
+  
+  
   // Handle image selection
   const handleImageChange = (event) => {
     const file = event.target.files[0];
@@ -393,7 +524,7 @@ const ChatMessaging = () => {
       return (
         <i class="bx bxs-send bx-rotate-270" style={{ color: "white" }}></i>
       );
-    return sendBtnContent; // Default size for larger screens
+    return <i class="bx bxs-send bx-rotate-270" style={{ color: "white" }}></i>; // Default size for larger screens
   };
 
   return (
@@ -422,37 +553,49 @@ const ChatMessaging = () => {
               <main className="chat-messaging">
                 <div className="chat-contents">
                   <div className="messages" ref={messageListRef}>
-                    {messages.map((message) => (
-                      <div
-                        className={`message ${
-                          message.messageOwner === chatUserID
-                            ? "sent"
-                            : "received"
-                        }`}
-                        key={message.id}
-                      >
-                        <span className="username">
-                          {getChatUserName(message.messageOwner)}
-                        </span>
-                        {message.image && (
+                    {messages.map(
+                      (message) =>
+                        !message.deleted && (
                           <div
-                            className="message-image-container"
-                            onClick={() =>
-                              handleImageClick(message.image, message.content)
-                            }
+                          onContextMenu={(event) => message.messageOwner ===chatUserID
+                            ? handleSenderRightClick(event, message.id)
+                            :console.log("q0")
+                          }
+                            className={`message ${
+                              message.messageOwner === chatUserID
+                                ? "sent"
+                                : "received"
+                            }`}
+                            key={message.id}
                           >
-                            <div className="message-image-container-inside">
-                              <i class="bx bx-image"></i>
-                              <h4>Rasm</h4>
-                              <i class="bx bx-chevron-right"></i>
+                            <span className="username">
+                              {getChatUserName(message.messageOwner)}
+                            </span>
+                            {message.image && (
+                              <div
+                                className="message-image-container"
+                                onClick={() =>
+                                  handleImageClick(
+                                    message.image,
+                                    message.content
+                                  )
+                                }
+                              >
+                                <div className="message-image-container-inside">
+                                  <i className="bx bx-image"></i>
+                                  <h4>Rasm</h4>
+                                  <i className="bx bx-chevron-right"></i>
+                                </div>
+                                <p>Ochish uchun bosing!</p>
+                              </div>
+                            )}
+                            <div className="message-content">
+                              {message.content}
                             </div>
-                            <p>Ochish uchun bosing!</p>
                           </div>
-                        )}
-
-                        <div className="message-content">{message.content}</div>
-                      </div>
-                    ))}
+                        )
+                    )}
+                    {renderContextMenu()}
                   </div>
                   {image ? (
                     <>
