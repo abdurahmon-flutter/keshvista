@@ -44,7 +44,7 @@ const ImagePreviewContainer = ({ imageUrl, message, onClose }) => {
             </div>
           )}
           <img
-            src={ENDPOINT+"/media/"+imageUrl}
+            src={`data:image/jpeg;base64,${imageUrl}`}
             alt="Preview"
             className="image-preview"
             style={{ display: isLoading ? "none" : "block" }}
@@ -72,8 +72,7 @@ const ImagePreviewContainer = ({ imageUrl, message, onClose }) => {
 const ChatMessaging = () => {
   const userType = localStorage.getItem("userType");
   const [imagesLoaded, setImagesLoaded] = useState(false);
-  const [messagesDeleteLoading, setMessagesDeleteLoading] = useState(false);
-  const [currentData, setCurrentData] = useState();
+
   const [imagePreviewEnabled, setimagePreviewEnabled] = useState(false);
   const [uploadProgressText, setUploadProgressText] = useState("");
   const [selectedMessage, setSelectedMessage] = useState("");
@@ -82,6 +81,8 @@ const ChatMessaging = () => {
   const [lcenterId, setLcenterID] = useState(null);
   const [chatRoomID, setChatRoomID] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [scroller, setScroller] = useState(true);
+  const scrollerInitializedRef = useRef(false);
   const [messages, setMessages] = useState([]);
   const [chatUsers, setChatUsers] = useState([]);
   const [messageContent, setMessageContent] = useState("");
@@ -106,37 +107,59 @@ const ChatMessaging = () => {
       preserveAspectRatio: "xMidYMid slice",
     },
   };
-  const handleImageClick = (image, message) => {
-    setimagePreviewEnabled(true);
-    
-    setSelectedImageForPreview(image);
-    console.log(`${ENDPOINT}/media/${image}`);
-    setSelectedMessage(message);
-  };
-  const handleScroll = () => {
-    if (messageListRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = messageListRef.current;
+  const convertImageToBase64 = async (imageUrl) => {
+    try {
+      // Log the image URL
+      console.log(imageUrl);
   
-      // If user scrolls up, set the flag
-      if (scrollHeight - clientHeight - scrollTop > 5) {
-        setUserScrolling(true);
-      } else {
-        setUserScrolling(false);
+      // Remove the "chat-images/" part from the URL
+      const imageName = imageUrl.replace("chat-images/", "");
+  
+      // Make the fetch request to the Django backend to convert the image
+      const response = await fetch(`${ENDPOINT}/convert-chat-image/${imageName}/`);
+      
+      // Check if the response is OK
+      if (!response.ok) {
+        throw new Error('Failed to convert image');
       }
+  
+      // Parse the JSON response
+      const data = await response.json();
+  
+      // Check if base64 image data is available
+      if (data.base64_image) {
+        console.log(data.base64_image);
+        return data.base64_image;
+        
+      } else {
+        console.error('Error converting image.');
+        return null;
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      return null; // Return null in case of an error
     }
   };
-  useEffect(() => {
-    const messageList = messageListRef.current;
-    if (messageList) {
-      messageList.addEventListener("scroll", handleScroll);
-      return () => messageList.removeEventListener("scroll", handleScroll);
+  
+  
+  const handleImageClick = async (imageUrl, message) => {
+    try {
+      const image  = await convertImageToBase64(imageUrl);
+      if(image){
+        setSelectedImageForPreview(image);
+      }else{
+        console.log("rasmni ololmadik😭");
+      }
+      setimagePreviewEnabled(true);
+      setSelectedMessage(message);
+    } catch (error) {
+      console.error("Error converting image to base64:", error);
+    } finally {
+      console.log("Success!😂");
     }
-  }, []);
-  useEffect(() => {
-    if (!userScrolling) {
-      scrollToBottom();
-    }
-  }, [messages, imagesLoaded, loading]);
+  };
+  
+
   const handleSenderRightClick = (event, messageId) => {
     event.preventDefault(); // Prevent the default context menu
     setContextMenu({
@@ -151,7 +174,7 @@ const ChatMessaging = () => {
     setimagePreviewEnabled(false);
     setSelectedImageForPreview(null);
     setSelectedMessage("");
-    
+    setTimeout(()=>scrollToBottom(),500);
   };
  
   const { chatName } = useParams();
@@ -348,15 +371,22 @@ const ChatMessaging = () => {
 
           if (newMessages.length > 0) {
             setMessages((prevMessages) => [...prevMessages, ...newMessages]);
+            setTimeout(() => scrollToBottom(), 10);
           }
         }
-        setTimeout(() => fetchNewMessages(chatRoomId), 1000);
+        setTimeout(() => fetchNewMessages(chatRoomId), 500);
       })
       .catch((error) => {
         console.error("Error fetching new messages:", error);
         setTimeout(() => fetchNewMessages(chatRoomId), 5000); // Retry after 5 seconds
       })
-      .finally(() => setLoading(false));
+      .finally(() =>{
+         setLoading(false);
+         if (!scrollerInitializedRef.current) {
+          scrollToBottom();
+        }
+        
+        });
   };
 
 
@@ -412,7 +442,8 @@ const ChatMessaging = () => {
       removeDeletedMessages();
     }
   }, [currentDeletedMessages]);
-
+  
+  
   const getChatUserName = (chatUserId) => {
     const user = chatUsers.find(
       (chatUser) => chatUser.id.toString() === chatUserId.toString()
@@ -427,6 +458,7 @@ const ChatMessaging = () => {
         top: messageListRef.current.scrollHeight,
         behavior: "smooth",
       });
+      scrollerInitializedRef.current = true; // Update the ref value
     }
   };
 
